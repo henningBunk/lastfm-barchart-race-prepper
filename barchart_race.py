@@ -1,49 +1,63 @@
 import csv
-from collections import defaultdict
 import arrow
 
+# Make sure the first line of the csv is the following:
+# artist, album, track, date
+
+# Put the csv in the same folder as this py file and put the filename in the next line
+your_csv_filename = 'plissk3n.csv'
+
+# Make sure to have python and arrow via pip installed
+# 'pip install arrow' or 'pip3 install arrow' should do the trick
 
 def prepare_csv(filename):
-    """
-    Make sure the header of the csv is the following:
-    artist, album, track, date
-    artist and date being the actual important ones
-    If arrow is failing to parse the date, use excel to format it all to
-    YYYY-MM-DD, and remove the 'M/D/YY H:mm' string from lines 19-20
-    """
-    working_list = []
-    all_dates = ['artist']
+    artists = {}
+    dates = []
+
+    # Read in all the data
     with open(filename, 'r') as _filehandler:
         csv_file_reader = csv.DictReader(_filehandler)
         for row in csv_file_reader:
-            month = arrow.get(row['date'], 'M/D/YY H:mm').format('MMMM')
-            year = arrow.get(row['date'], 'M/D/YY H:mm').format('YYYY')
-            row['date'] = year + ' ' + month
-            working_list.append(row)
-            if row['date'] not in all_dates:
-                all_dates.append(row['date'])
+            # Read in the csv values for this row
+            artist = row['artist']
+            month = arrow.get(row['date'], 'DD MMM YYYY HH:mm').format('MMMM')
+            year = arrow.get(row['date'], 'DD MMM YYYY HH:mm').format('YYYY')
+            date = year + ' ' + month
+            
+            # Add a new artist to the dict if needed
+            if artist not in artists:
+                artists[artist] = {}
 
-    artist_play_count = defaultdict(int)
-    d = defaultdict(dict)
-    for row in working_list:
-        if d[row['artist']].get(row['date']):
-            d[row['artist']][row['date']] += 1
-        else:
-            d[row['artist']][row['date']] = 1
+            # Add a new date to the artists dict with start counter one or
+            # if already present add one for this date
+            if date not in artists[artist]:
+                artists[artist][date] = 1
+            else:
+                artists[artist][date] += 1
 
-    final_list = []
-    for artist in d:
-        new_row = {}
-        new_row['artist'] = artist
-        for date in d[artist]:
-            artist_play_count[artist] += d[artist][date]
-            new_row[date] = artist_play_count[artist]
-        final_list.append(new_row)
+            # Add this date to the list of all dates if needed
+            if date not in dates:
+                dates.insert(0, date)
 
-    with open(filename + "-processed.csv", 'w') as f:
-        w = csv.DictWriter(f, all_dates)
-        w.writeheader()
-        for each in final_list:
-            w.writerow(each)
+    # Accumulate the counts
+    artistsSum = {}
+    for artist in artists:
+        sum = 0
+        artistsSum[artist] = {'artist':artist}
+        for date in dates:
+            if date in artists[artist]:
+                # Add overall plays for this artist
+                sum += artists[artist][date]
+                artistsSum[artist][date] = sum
 
-prepare_csv('lfshammu.csv')
+    print(artistsSum)
+
+    # Write all the data
+    dates.insert(0, 'artist')
+    with open(filename + "-processed.csv", 'w') as out:
+        csvOut = csv.DictWriter(out, dates)
+        csvOut.writeheader()
+        for artist in artistsSum:
+            csvOut.writerow(artistsSum[artist])
+
+prepare_csv(your_csv_filename)
